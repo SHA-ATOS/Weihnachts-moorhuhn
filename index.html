@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weihnachts-Moorhuhn (2 Spieler)</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        background:
+          radial-gradient(circle at 10% 10%, #6f89ff55 0, transparent 40%),
+          radial-gradient(circle at 80% 0%, #ffde7a66 0, transparent 35%),
+          linear-gradient(#0d1738, #10192a 50%, #251b15 100%);
+      }
+
+      .game {
+        width: min(980px, 96vw);
+        border: 2px solid #ffd27f;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 18px 40px #0009;
+        background: #090f22;
+      }
+
+      .hud {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 14px;
+        background: linear-gradient(90deg, #451c1a, #6b2a25, #451c1a);
+        border-bottom: 2px solid #c98f4a;
+      }
+
+      .player {
+        font-weight: 700;
+      }
+
+      .player.right {
+        text-align: right;
+      }
+
+      .timer {
+        padding: 6px 14px;
+        border: 1px solid #ffd27f;
+        border-radius: 999px;
+        font-weight: 700;
+      }
+
+      .arena {
+        position: relative;
+        height: 520px;
+        overflow: hidden;
+        cursor: crosshair;
+        background:
+          radial-gradient(circle at 20% 10%, #ffffff55 0 2px, transparent 3px),
+          radial-gradient(circle at 60% 12%, #ffffff66 0 2px, transparent 3px),
+          radial-gradient(circle at 90% 8%, #ffffff50 0 2px, transparent 3px),
+          linear-gradient(180deg, #1a2d58 0 50%, #3d2b20 50% 100%);
+      }
+
+      .market {
+        position: absolute;
+        inset: auto 0 96px;
+        height: 150px;
+        background:
+          repeating-linear-gradient(
+            90deg,
+            #6e3b1f 0 64px,
+            #5c2f17 64px 74px,
+            #6e3b1f 74px 138px,
+            #4a240f 138px 148px
+          );
+        border-top: 3px solid #8f4f29;
+      }
+
+      .market::before {
+        content: "";
+        position: absolute;
+        inset: -34px 0 auto;
+        height: 34px;
+        background:
+          repeating-linear-gradient(
+            135deg,
+            #b92929 0 18px,
+            #fff2f2 18px 36px
+          );
+      }
+
+      .lights {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 58px;
+        text-align: center;
+        font-size: 22px;
+        letter-spacing: 10px;
+      }
+
+      .hit-zone {
+        position: absolute;
+        right: 80px;
+        top: 0;
+        bottom: 0;
+        width: 90px;
+        border: 2px dashed #ffffff70;
+        border-top: 0;
+        border-bottom: 0;
+        pointer-events: none;
+      }
+
+      .lane-guides {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(
+          transparent 24%,
+          #ffffff1a 24% 26%,
+          transparent 26% 49%,
+          #ffffff1a 49% 51%,
+          transparent 51% 74%,
+          #ffffff1a 74% 76%,
+          transparent 76%
+        );
+      }
+
+      .chicken {
+        position: absolute;
+        left: -60px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        font-size: 34px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #ffefc8cc;
+        border: 2px solid #6b4f25;
+        box-shadow: 0 6px 10px #0008;
+        user-select: none;
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 20px;
+        background: #080d19d8;
+      }
+
+      .panel {
+        max-width: 700px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+      }
+
+      p,
+      li {
+        line-height: 1.45;
+      }
+
+      ul {
+        text-align: left;
+      }
+
+      button {
+        margin-top: 10px;
+        border: 0;
+        background: linear-gradient(#ffdb88, #e9a52e);
+        color: #2c1700;
+        font-weight: 700;
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="game">
+      <section class="hud">
+        <div class="player">Spieler 1: <span id="score1">0</span></div>
+        <div class="timer">Zeit: <span id="time">60</span>s</div>
+        <div class="player right">Spieler 2: <span id="score2">0</span></div>
+      </section>
+      <section class="arena" id="arena">
+        <div class="lights">🎄 ✨ 🎁 ✨ 🎄 ✨ 🎅 ✨ 🎄</div>
+        <div class="market" aria-hidden="true"></div>
+        <div class="lane-guides" aria-hidden="true"></div>
+        <div class="hit-zone" aria-hidden="true"></div>
+        <div class="overlay" id="overlay">
+          <div class="panel">
+            <h1>Weihnachts-Moorhuhn für 2 Spieler</h1>
+            <p>
+              Trefft Moorhühner in der markierten Trefferzone. Nach 1 Minute gewinnt
+              der Spieler mit den meisten Treffern.
+            </p>
+            <ul>
+              <li>Spieler 1: Tasten <strong>A, S, D, F</strong> (Spur 1-4)</li>
+              <li>Spieler 2: Tasten <strong>J, K, L, Ö</strong> oder <strong>J, K, L, ;</strong> (Spur 1-4)</li>
+            </ul>
+            <button id="startBtn" type="button">Spiel starten</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const arena = document.getElementById('arena');
+      const score1El = document.getElementById('score1');
+      const score2El = document.getElementById('score2');
+      const timeEl = document.getElementById('time');
+      const overlay = document.getElementById('overlay');
+      const startBtn = document.getElementById('startBtn');
+
+      const lanes = [130, 220, 310, 400];
+      const p1Keys = ['a', 's', 'd', 'f'];
+      const p2SharedKeys = ['j', 'k', 'l'];
+      const p2Keys = [...p2SharedKeys, 'ö'];
+      const altP2Keys = [...p2SharedKeys, ';'];
+      const MIN_CHICKEN_SPEED = 2;
+      const MAX_CHICKEN_SPEED = 4.4;
+      const SPAWN_INTERVAL_MS = 700;
+      const FRAME_INTERVAL_MS = 16;
+      const HIT_ZONE_OFFSET_RIGHT = 80;
+      const HIT_ZONE_WIDTH = 90;
+      const CHICKEN_HALF_WIDTH = 28;
+
+      let running = false;
+      let score1 = 0;
+      let score2 = 0;
+      let timeLeft = 60;
+      let chickens = [];
+      let spawnInterval;
+      let gameInterval;
+      let clockInterval;
+
+      function getHitZone() {
+        return {
+          left: arena.clientWidth - (HIT_ZONE_OFFSET_RIGHT + HIT_ZONE_WIDTH),
+          right: arena.clientWidth - HIT_ZONE_OFFSET_RIGHT
+        };
+      }
+
+      function updateHud() {
+        score1El.textContent = score1;
+        score2El.textContent = score2;
+        timeEl.textContent = timeLeft;
+      }
+
+      function createChicken() {
+        const chicken = document.createElement('div');
+        chicken.className = 'chicken';
+        chicken.textContent = '🐔';
+        const lane = Math.floor(Math.random() * 4);
+        chicken.style.top = `${lanes[lane]}px`;
+        chicken.style.left = '-56px';
+        chicken.dataset.lane = lane;
+        chicken.dataset.x = '-56';
+        chicken.dataset.speed = String(
+          MIN_CHICKEN_SPEED + Math.random() * (MAX_CHICKEN_SPEED - MIN_CHICKEN_SPEED)
+        );
+        arena.appendChild(chicken);
+        chickens.push(chicken);
+      }
+
+      function clearChickens() {
+        chickens.forEach((chicken) => chicken.remove());
+        chickens = [];
+      }
+
+      function moveChickens() {
+        chickens = chickens.filter((chicken) => {
+          const x = Number(chicken.dataset.x) + Number(chicken.dataset.speed);
+          chicken.dataset.x = String(x);
+          chicken.style.left = `${x}px`;
+          if (x > arena.clientWidth + 60) {
+            chicken.remove();
+            return false;
+          }
+          return true;
+        });
+      }
+
+      function shoot(player, lane) {
+        const hitZone = getHitZone();
+        const target = chickens.find((chicken) => {
+          const chickenLane = Number(chicken.dataset.lane);
+          const x = Number(chicken.dataset.x) + CHICKEN_HALF_WIDTH;
+          return chickenLane === lane && x >= hitZone.left && x <= hitZone.right;
+        });
+
+        if (!target) {
+          return;
+        }
+
+        target.remove();
+        chickens = chickens.filter((chicken) => chicken !== target);
+
+        if (player === 1) {
+          score1 += 1;
+        } else {
+          score2 += 1;
+        }
+        updateHud();
+      }
+
+      function endGame() {
+        running = false;
+        clearInterval(spawnInterval);
+        clearInterval(gameInterval);
+        clearInterval(clockInterval);
+
+        let winner = 'Unentschieden!';
+        if (score1 > score2) {
+          winner = 'Spieler 1 gewinnt!';
+        } else if (score2 > score1) {
+          winner = 'Spieler 2 gewinnt!';
+        }
+
+        overlay.innerHTML = `
+          <div class="panel">
+            <h1>Zeit abgelaufen</h1>
+            <p>${winner}</p>
+            <p>Endstand: Spieler 1 (${score1}) : Spieler 2 (${score2})</p>
+            <button id="startBtn" type="button">Nochmal spielen</button>
+          </div>
+        `;
+        overlay.style.display = 'grid';
+        overlay.querySelector('#startBtn').onclick = startGame;
+      }
+
+      function startGame() {
+        clearInterval(spawnInterval);
+        clearInterval(gameInterval);
+        clearInterval(clockInterval);
+
+        score1 = 0;
+        score2 = 0;
+        timeLeft = 60;
+        running = true;
+        clearChickens();
+        overlay.style.display = 'none';
+        updateHud();
+
+        spawnInterval = setInterval(createChicken, SPAWN_INTERVAL_MS);
+        gameInterval = setInterval(moveChickens, FRAME_INTERVAL_MS);
+
+        clockInterval = setInterval(() => {
+          if (!running) {
+            clearInterval(clockInterval);
+            return;
+          }
+          timeLeft -= 1;
+          updateHud();
+          if (timeLeft <= 0) {
+            clearInterval(clockInterval);
+            endGame();
+          }
+        }, 1000);
+      }
+
+      window.addEventListener('keydown', (event) => {
+        if (!running) {
+          return;
+        }
+
+        const key = event.key.toLowerCase();
+        const laneP1 = p1Keys.indexOf(key);
+        if (laneP1 >= 0) {
+          shoot(1, laneP1);
+          return;
+        }
+
+        const laneP2 = p2Keys.indexOf(key);
+        if (laneP2 >= 0) {
+          shoot(2, laneP2);
+          return;
+        }
+
+        const laneP2Alt = altP2Keys.indexOf(key);
+        if (laneP2Alt >= 0) {
+          shoot(2, laneP2Alt);
+        }
+      });
+
+      startBtn.addEventListener('click', startGame);
+      updateHud();
+    </script>
+  </body>
+</html>
