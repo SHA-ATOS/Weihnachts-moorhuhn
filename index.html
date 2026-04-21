@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weihnachts-Moorhuhn 🎄</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            user-select: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+        }
+
+        #startScreen, #endScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 10;
+        }
+
+        #endScreen {
+            display: none;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            color: #ff6b6b;
+        }
+
+        h2 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #ffd93d;
+        }
+
+        .instructions {
+            font-size: 18px;
+            margin: 10px 0;
+            text-align: center;
+            line-height: 1.8;
+            color: #e0e0e0;
+        }
+
+        .instructions strong {
+            color: #ffd93d;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #c0392b;
+            color: white;
+            border: 3px solid #e74c3c;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #e74c3c;
+            transform: scale(1.05);
+        }
+
+        .score-final {
+            font-size: 28px;
+            margin: 10px 0;
+        }
+
+        .winner {
+            font-size: 42px;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            margin: 20px 0;
+        }
+
+        #snowflakes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="startScreen">
+        <h1>🎄 Weihnachts-Moorhuhn 🎄</h1>
+        <h2>2-Spieler Modus</h2>
+        <div class="instructions">
+            <strong>Spieler 1 (Rot):</strong> Maus bewegen + Linksklick zum Schießen<br>
+            <strong>Spieler 2 (Blau):</strong> Pfeiltasten bewegen + Leertaste zum Schießen<br><br>
+            Schießt so viele Moorhühner wie möglich in <strong>60 Sekunden!</strong><br>
+            🐔 Kleines Huhn = 10 Punkte &nbsp; 🐓 Großes Huhn = 5 Punkte &nbsp; ⭐ Stern = 25 Punkte
+        </div>
+        <button class="btn" id="startBtn">Spiel Starten! 🎮</button>
+    </div>
+
+    <div id="endScreen">
+        <h1>🎄 Zeit abgelaufen! 🎄</h1>
+        <div class="score-final" id="finalScore1"></div>
+        <div class="score-final" id="finalScore2"></div>
+        <div class="winner" id="winnerText"></div>
+        <button class="btn" id="restartBtn">Nochmal Spielen! 🔄</button>
+    </div>
+
+    <script>
+        // ============================================================
+        // GAME SETUP
+        // ============================================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // ============================================================
+        // GAME STATE
+        // ============================================================
+        let gameRunning = false;
+        let timeLeft = 60;
+        let timerInterval = null;
+
+        const player1 = { score: 0, x: canvas.width / 3, y: canvas.height / 2, color: '#ff4444', name: 'Spieler 1' };
+        const player2 = { score: 0, x: (canvas.width / 3) * 2, y: canvas.height / 2, color: '#4444ff', name: 'Spieler 2' };
+
+        let moorhuhns = [];
+        let particles = [];
+        let shotEffects = [];
+        let snowflakes = [];
+        let stars = [];
+
+        const keys = {};
+
+        // ============================================================
+        // SNOWFLAKES
+        // ============================================================
+        function initSnowflakes() {
+            snowflakes = [];
+            for (let i = 0; i < 150; i++) {
+                snowflakes.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: Math.random() * 3 + 1,
+                    speed: Math.random() * 1.5 + 0.5,
+                    wind: Math.random() * 0.5 - 0.25,
+                    opacity: Math.random() * 0.5 + 0.3
+                });
+            }
+        }
+
+        function updateSnowflakes() {
+            snowflakes.forEach(s => {
+                s.y += s.speed;
+                s.x += s.wind + Math.sin(Date.now() * 0.001 + s.x) * 0.3;
+                if (s.y > canvas.height) { s.y = -5; s.x = Math.random() * canvas.width; }
+                if (s.x > canvas.width) s.x = 0;
+                if (s.x < 0) s.x = canvas.width;
+            });
+        }
+
+        function drawSnowflakes() {
+            snowflakes.forEach(s => {
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+                ctx.fill();
+            });
+        }
+
+        // ============================================================
+        // CHRISTMAS MARKET BACKGROUND
+        // ============================================================
+        function drawBackground() {
+            // Sky gradient (dark winter evening)
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, '#0a0a2a');
+            skyGrad.addColorStop(0.3, '#1a1a4e');
+            skyGrad.addColorStop(0.6, '#2d1b4e');
+            skyGrad.addColorStop(1, '#1a1a2e');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Stars in sky
+            if (stars.length === 0) {
+                for (let i = 0; i < 80; i++) {
+                    stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height * 0.4,
+                        r: Math.random() * 2 + 0.5,
+                        twinkle: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+            stars.forEach(star => {
+                const brightness = 0.5 + 0.5 * Math.sin(Date.now() * 0.002 + star.twinkle);
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 200, ${brightness})`;
+                ctx.fill();
+            });
+
+            // Moon
+            ctx.beginPath();
+            ctx.arc(canvas.width - 120, 80, 40, 0, Math.PI * 2);
+            ctx.fillStyle = '#fffde7';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(canvas.width - 108, 72, 35, 0, Math.PI * 2);
+            ctx.fillStyle = '#0a0a2a';
+            ctx.fill();
+
+            // Snowy ground
+            const groundY = canvas.height * 0.75;
+            const snowGrad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+            snowGrad.addColorStop(0, '#e8e8f0');
+            snowGrad.addColorStop(1, '#c0c0d0');
+            ctx.fillStyle = snowGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            for (let x = 0; x <= canvas.width; x += 50) {
+                ctx.lineTo(x, groundY + Math.sin(x * 0.02) * 10);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw Christmas market stalls
+            drawMarketStall(canvas.width * 0.1, groundY - 10, '#8B4513', '#c0392b', '🍷');
+            drawMarketStall(canvas.width * 0.3, groundY - 10, '#654321', '#27ae60', '🎁');
+            drawMarketStall(canvas.width * 0.5, groundY - 10, '#8B4513', '#e74c3c', '🌭');
+            drawMarketStall(canvas.width * 0.7, groundY - 10, '#654321', '#f39c12', '⭐');
+            drawMarketStall(canvas.width * 0.9, groundY - 10, '#8B4513', '#c0392b', '🎄');
+
+            // Christmas tree in center
+            drawChristmasTree(canvas.width * 0.5, groundY - 15);
+
+            // String lights across the top
+            drawStringLights();
+        }
+
+        function drawMarketStall(x, y, woodColor, roofColor, emoji) {
+            const w = 100;
+            const h = 80;
+
+            // Stall body
+            ctx.fillStyle = woodColor;
+            ctx.fillRect(x - w / 2, y - h, w, h);
+
+            // Stall front board
+            ctx.fillStyle = '#deb887';
+            ctx.fillRect(x - w / 2 + 5, y - h + 5, w - 10, h * 0.4);
+
+            // Roof
+            ctx.beginPath();
+            ctx.moveTo(x - w / 2 - 15, y - h);
+            ctx.lineTo(x, y - h - 45);
+            ctx.lineTo(x + w / 2 + 15, y - h);
+            ctx.closePath();
+            ctx.fillStyle = roofColor;
+            ctx.fill();
+
+            // Snow on roof
+            ctx.beginPath();
+            ctx.moveTo(x - w / 2 - 10, y - h);
+            ctx.lineTo(x, y - h - 40);
+            ctx.lineTo(x + w / 2 + 10, y - h);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fill();
+
+            // Emoji
+            ctx.font = '30px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(emoji, x, y - h + 55);
+
+            // Lanterns
+            drawLantern(x - w / 2 - 5, y - h - 5);
+            drawLantern(x + w / 2 + 5, y - h - 5);
+        }
+
+        function drawLantern(x, y) {
+            const glow = 0.5 + 0.3 * Math.sin(Date.now() * 0.003 + x);
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 200, 50, ${glow})`;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffdd44';
+            ctx.fill();
+        }
+
+        function drawChristmasTree(x, y) {
+            // Tree trunk
+            ctx.fillStyle = '#5c3317';
+            ctx.fillRect(x - 10, y - 20, 20, 20);
+
+            // Tree layers
+            const layers = [
+                { w: 80, h: 40, yOff: -55 },
+                { w: 60, h: 35, yOff: -85 },
+                { w: 40, h: 30, yOff: -110 }
+            ];
+            layers.forEach(l => {
+                ctx.beginPath();
+                ctx.moveTo(x - l.w / 2, y + l.yOff + l.h);
+                ctx.lineTo(x, y + l.yOff);
+                ctx.lineTo(x + l.w / 2, y + l.yOff + l.h);
+                ctx.closePath();
+                ctx.fillStyle = '#1a6b1a';
+                ctx.fill();
+                ctx.strokeStyle = '#0d4d0d';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+
+            // Star on top
+            drawStar(x, y - 118, 10, '#ffd700');
+
+            // Ornaments
+            const ornamentColors = ['#ff0000', '#ffd700', '#4169e1', '#ff69b4'];
+            const ornaments = [
+                { ox: -20, oy: -45 }, { ox: 15, oy: -50 }, { ox: -10, oy: -70 },
+                { ox: 10, oy: -80 }, { ox: 0, oy: -55 }, { ox: -5, oy: -95 }
+            ];
+            ornaments.forEach((o, i) => {
+                ctx.beginPath();
+                ctx.arc(x + o.ox, y + o.oy, 4, 0, Math.PI * 2);
+                ctx.fillStyle = ornamentColors[i % ornamentColors.length];
+                ctx.fill();
+            });
+        }
+
+        function drawStar(x, y, size, color) {
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                const px = x + Math.cos(angle) * size;
+                const py = y + Math.sin(angle) * size;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function drawStringLights() {
+            const y = 50;
+            const segments = 12;
+            const segW = canvas.width / segments;
+            const colors = ['#ff0000', '#00ff00', '#ffdd00', '#ff00ff', '#00ffff', '#ff8800'];
+
+            for (let i = 0; i <= segments; i++) {
+                const x = i * segW;
+                const bulbY = y + Math.sin(i * 0.8) * 15 + 10;
+                const glow = 0.7 + 0.3 * Math.sin(Date.now() * 0.004 + i);
+
+                // Wire
+                if (i < segments) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, bulbY);
+                    const nextY = y + Math.sin((i + 1) * 0.8) * 15 + 10;
+                    ctx.quadraticCurveTo(x + segW / 2, Math.max(bulbY, nextY) + 15, x + segW, nextY);
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Bulb glow
+                ctx.beginPath();
+                ctx.arc(x, bulbY, 10, 0, Math.PI * 2);
+                const c = colors[i % colors.length];
+                ctx.fillStyle = c.replace(')', `, ${glow * 0.3})`).replace('rgb', 'rgba');
+                ctx.fill();
+
+                // Bulb
+                ctx.beginPath();
+                ctx.arc(x, bulbY, 5, 0, Math.PI * 2);
+                ctx.fillStyle = c;
+                ctx.globalAlpha = glow;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // ============================================================
+        // MOORHUHN (CHICKENS)
+        // ============================================================
+        function spawnMoorhuhn() {
+            const types = ['small', 'normal', 'star'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const fromLeft = Math.random() > 0.5;
+            const speed = type === 'small' ? (3 + Math.random() * 3) : type === 'star' ? (4 + Math.random() * 2) : (1.5 + Math.random() * 2);
+            const size = type === 'small' ? 25 : type === 'star' ? 20 : 40;
+            const points = type === 'small' ? 10 : type === 'star' ? 25 : 5;
+
+            const moorhuhn = {
+                x: fromLeft ? -50 : canvas.width + 50,
+                y: 80 + Math.random() * (canvas.height * 0.5),
+                vx: fromLeft ? speed : -speed,
+                vy: Math.sin(Math.random() * Math.PI) * 1.5,
+                size: size,
+                type: type,
+                points: points,
+                alive: true,
+                wingAngle: 0,
+                bobOffset: Math.random() * Math.PI * 2
+            };
+            moorhuhns.push(moorhuhn);
+        }
+
+        function updateMoorhuhns() {
+            moorhuhns.forEach(m => {
+                if (!m.alive) return;
+                m.x += m.vx;
+                m.y += Math.sin(Date.now() * 0.003 + m.bobOffset) * 0.8;
+                m.wingAngle += 0.15;
+            });
+            moorhuhns = moorhuhns.filter(m =>
+                m.alive || particles.some(p => p.sourceId === m));
+            moorhuhns = moorhuhns.filter(m => {
+                if (!m.alive) return true;
+                return m.x > -100 && m.x < canvas.width + 100;
+            });
+        }
+
+        function drawMoorhuhns() {
+            moorhuhns.forEach(m => {
+                if (!m.alive) return;
+
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                if (m.vx < 0) ctx.scale(-1, 1);
+
+                if (m.type === 'star') {
+                    // Golden star target
+                    const starGlow = 0.7 + 0.3 * Math.sin(Date.now() * 0.005);
+                    ctx.globalAlpha = starGlow;
+                    drawStar(0, 0, m.size, '#ffd700');
+                    ctx.globalAlpha = 1;
+                    drawStar(0, 0, m.size * 0.6, '#ffee88');
+                } else {
+                    // Body
+                    ctx.fillStyle = m.type === 'small' ? '#8B6914' : '#6B4226';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, m.size * 0.6, m.size * 0.4, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Head
+                    ctx.fillStyle = m.type === 'small' ? '#A0782C' : '#7B5236';
+                    ctx.beginPath();
+                    ctx.arc(m.size * 0.4, -m.size * 0.15, m.size * 0.25, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Eye
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(m.size * 0.5, -m.size * 0.22, m.size * 0.08, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(m.size * 0.52, -m.size * 0.22, m.size * 0.04, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Beak
+                    ctx.fillStyle = '#ff8800';
+                    ctx.beginPath();
+                    ctx.moveTo(m.size * 0.6, -m.size * 0.15);
+                    ctx.lineTo(m.size * 0.8, -m.size * 0.1);
+                    ctx.lineTo(m.size * 0.6, -m.size * 0.05);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Comb (red)
+                    ctx.fillStyle = '#cc0000';
+                    ctx.beginPath();
+                    ctx.arc(m.size * 0.35, -m.size * 0.38, m.size * 0.1, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(m.size * 0.45, -m.size * 0.35, m.size * 0.08, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Wing (animated)
+                    const wingY = Math.sin(m.wingAngle) * m.size * 0.15;
+                    ctx.fillStyle = m.type === 'small' ? '#7A5A10' : '#5A3520';
+                    ctx.beginPath();
+                    ctx.ellipse(-m.size * 0.1, wingY, m.size * 0.35, m.size * 0.2, -0.3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Santa hat on chicken 🎅
+                    ctx.fillStyle = '#cc0000';
+                    ctx.beginPath();
+                    ctx.moveTo(m.size * 0.2, -m.size * 0.35);
+                    ctx.lineTo(m.size * 0.4, -m.size * 0.7);
+                    ctx.lineTo(m.size * 0.6, -m.size * 0.3);
+                    ctx.closePath();
+                    ctx.fill();
+                    // Hat brim
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.ellipse(m.size * 0.4, -m.size * 0.33, m.size * 0.25, m.size * 0.06, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Pompom
+                    ctx.beginPath();
+                    ctx.arc(m.size * 0.4, -m.size * 0.72, m.size * 0.07, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            });
+        }
+
+        // ============================================================
+        // PARTICLES & EFFECTS
+        // ============================================================
+        function createHitParticles(x, y, points) {
+            for (let i = 0; i < 12; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 2;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 2,
+                    life: 1,
+                    color: points >= 25 ? '#ffd700' : points >= 10 ? '#ff8800' : '#ff4444',
+                    size: Math.random() * 4 + 2
+                });
+            }
+            // Score popup
+            particles.push({
+                x, y: y - 20,
+                vx: 0, vy: -1.5,
+                life: 1,
+                isText: true,
+                text: `+${points}`,
+                color: points >= 25 ? '#ffd700' : '#ffffff',
+                size: points >= 25 ? 28 : 22
+            });
+        }
+
+        function createShotEffect(x, y, color) {
+            shotEffects.push({
+                x, y, color, life: 1, maxRadius: 20
+            });
+        }
+
+        function updateParticles() {
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (!p.isText) p.vy += 0.1;
+                p.life -= 0.02;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            shotEffects.forEach(e => { e.life -= 0.08; });
+            shotEffects = shotEffects.filter(e => e.life > 0);
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = Math.max(0, p.life);
+                if (p.isText) {
+                    ctx.font = `bold ${p.size}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = p.color;
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 3;
+                    ctx.strokeText(p.text, p.x, p.y);
+                    ctx.fillText(p.text, p.x, p.y);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            });
+
+            shotEffects.forEach(e => {
+                ctx.globalAlpha = e.life * 0.5;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.maxRadius * (1 - e.life), 0, Math.PI * 2);
+                ctx.strokeStyle = e.color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            });
+        }
+
+        // ============================================================
+        // CROSSHAIRS
+        // ============================================================
+        function drawCrosshair(x, y, color, label) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.8;
+
+            // Outer circle
+            ctx.beginPath();
+            ctx.arc(x, y, 20, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Cross lines
+            ctx.beginPath();
+            ctx.moveTo(x - 28, y); ctx.lineTo(x - 10, y);
+            ctx.moveTo(x + 10, y); ctx.lineTo(x + 28, y);
+            ctx.moveTo(x, y - 28); ctx.lineTo(x, y - 10);
+            ctx.moveTo(x, y + 10); ctx.lineTo(x, y + 28);
+            ctx.stroke();
+
+            // Center dot
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            // Label
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = color;
+            ctx.fillText(label, x, y + 40);
+
+            ctx.globalAlpha = 1;
+        }
+
+        // ============================================================
+        // HUD
+        // ============================================================
+        function drawHUD() {
+            // Timer bar
+            const barW = 300;
+            const barH = 25;
+            const barX = (canvas.width - barW) / 2;
+            const barY = 15;
+            const pct = timeLeft / 60;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(barX - 5, barY - 5, barW + 10, barH + 10);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(barX, barY, barW, barH);
+
+            const timeColor = pct > 0.5 ? '#2ecc71' : pct > 0.25 ? '#f1c40f' : '#e74c3c';
+            ctx.fillStyle = timeColor;
+            ctx.fillRect(barX, barY, barW * pct, barH);
+
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'white';
+            ctx.fillText(`⏱ ${timeLeft}s`, canvas.width / 2, barY + 19);
+
+            // Player 1 score (left)
+            ctx.fillStyle = 'rgba(255, 50, 50, 0.2)';
+            ctx.fillRect(15, 10, 200, 50);
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(15, 10, 200, 50);
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#ff6666';
+            ctx.fillText('🎯 Spieler 1', 25, 32);
+            ctx.font = 'bold 22px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(`${player1.score} Punkte`, 25, 55);
+
+            // Player 2 score (right)
+            ctx.fillStyle = 'rgba(50, 50, 255, 0.2)';
+            ctx.fillRect(canvas.width - 215, 10, 200, 50);
+            ctx.strokeStyle = '#4444ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(canvas.width - 215, 10, 200, 50);
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#6666ff';
+            ctx.fillText('🎯 Spieler 2', canvas.width - 25, 32);
+            ctx.font = 'bold 22px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(`${player2.score} Punkte`, canvas.width - 25, 55);
+        }
+
+        // ============================================================
+        // SHOOTING LOGIC
+        // ============================================================
+        function shoot(player, x, y) {
+            if (!gameRunning) return;
+
+            createShotEffect(x, y, player.color);
+
+            let hit = false;
+            for (let i = moorhuhns.length - 1; i >= 0; i--) {
+                const m = moorhuhns[i];
+                if (!m.alive) continue;
+                const dist = Math.hypot(m.x - x, m.y - y);
+                if (dist < m.size + 10) {
+                    m.alive = false;
+                    player.score += m.points;
+                    createHitParticles(m.x, m.y, m.points);
+                    hit = true;
+                    break;
+                }
+            }
+
+            if (!hit) {
+                // Miss particles
+                for (let i = 0; i < 3; i++) {
+                    particles.push({
+                        x: x + (Math.random() - 0.5) * 10,
+                        y: y + (Math.random() - 0.5) * 10,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: -Math.random() * 2,
+                        life: 0.5,
+                        color: '#888888',
+                        size: 2
+                    });
+                }
+            }
+        }
+
+        // ============================================================
+        // INPUT HANDLING
+        // ============================================================
+
+        // Player 1: Mouse
+        canvas.addEventListener('mousemove', (e) => {
+            player1.x = e.clientX;
+            player1.y = e.clientY;
+        });
+
+        canvas.addEventListener('click', (e) => {
+            shoot(player1, e.clientX, e.clientY);
+        });
+
+        // Prevent context menu
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Player 2: Keyboard
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                shoot(player2, player2.x, player2.y);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        function updatePlayer2Movement() {
+            const speed = 7;
+            if (keys['ArrowLeft']) player2.x -= speed;
+            if (keys['ArrowRight']) player2.x += speed;
+            if (keys['ArrowUp']) player2.y -= speed;
+            if (keys['ArrowDown']) player2.y += speed;
+
+            player2.x = Math.max(0, Math.min(canvas.width, player2.x));
+            player2.y = Math.max(0, Math.min(canvas.height, player2.y));
+        }
+
+        // ============================================================
+        // GAME LOOP
+        // ============================================================
+        let spawnTimer = 0;
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background
+            drawBackground();
+
+            // Spawn moorhuhns
+            spawnTimer++;
+            if (spawnTimer % 40 === 0) spawnMoorhuhn();
+            if (spawnTimer % 90 === 0) spawnMoorhuhn(); // extra spawns
+
+            // Update
+            updatePlayer2Movement();
+            updateMoorhuhns();
+            updateParticles();
+            updateSnowflakes();
+
+            // Draw
+            drawMoorhuhns();
+            drawParticles();
+            drawSnowflakes();
+            drawCrosshair(player1.x, player1.y, player1.color, 'P1');
+            drawCrosshair(player2.x, player2.y, player2.color, 'P2');
+            drawHUD();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============================================================
+        // GAME START / END
+        // ============================================================
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('endScreen').style.display = 'none';
+
+            player1.score = 0;
+            player2.score = 0;
+            player1.x = canvas.width / 3;
+            player1.y = canvas.height / 2;
+            player2.x = (canvas.width / 3) * 2;
+            player2.y = canvas.height / 2;
+            timeLeft = 60;
+            moorhuhns = [];
+            particles = [];
+            shotEffects = [];
+            spawnTimer = 0;
+
+            initSnowflakes();
+
+            gameRunning = true;
+            canvas.style.cursor = 'none';
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            gameLoop();
+        }
+
+        function endGame() {
+            gameRunning = false;
+            canvas.style.cursor = 'default';
+            clearInterval(timerInterval);
+
+            document.getElementById('finalScore1').innerHTML =
+                `🔴 Spieler 1: <strong>${player1.score} Punkte</strong>`;
+            document.getElementById('finalScore2').innerHTML =
+                `🔵 Spieler 2: <strong>${player2.score} Punkte</strong>`;
+
+            let winnerHTML;
+            if (player1.score > player2.score) {
+                winnerHTML = '🏆 Spieler 1 gewinnt! 🏆';
+            } else if (player2.score > player1.score) {
+                winnerHTML = '🏆 Spieler 2 gewinnt! 🏆';
+            } else {
+                winnerHTML = '🤝 Unentschieden! 🤝';
+            }
+            document.getElementById('winnerText').innerHTML = winnerHTML;
+            document.getElementById('endScreen').style.display = 'flex';
+        }
+
+        // Button listeners
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+
+        // Draw initial background
+        initSnowflakes();
+        function drawInitialBg() {
+            drawBackground();
+            drawSnowflakes();
+            updateSnowflakes();
+            if (!gameRunning) requestAnimationFrame(drawInitialBg);
+        }
+        drawInitialBg();
+    </script>
+</body>
+</html>
