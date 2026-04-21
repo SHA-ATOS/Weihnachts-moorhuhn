@@ -215,7 +215,7 @@
             </p>
             <ul>
               <li>Spieler 1: Tasten <strong>A, S, D, F</strong> (Spur 1-4)</li>
-              <li>Spieler 2: Tasten <strong>J, K, L, Ö</strong> (Spur 1-4)</li>
+              <li>Spieler 2: Tasten <strong>J, K, L, Ö</strong> oder <strong>J, K, L, ;</strong> (Spur 1-4)</li>
             </ul>
             <button id="startBtn" type="button">Spiel starten</button>
           </div>
@@ -234,8 +234,11 @@
       const lanes = [130, 220, 310, 400];
       const p1Keys = ['a', 's', 'd', 'f'];
       const p2Keys = ['j', 'k', 'l', 'ö'];
-      const hitZoneLeft = arena.clientWidth - 170;
-      const hitZoneRight = arena.clientWidth - 80;
+      const altP2Keys = ['j', 'k', 'l', ';'];
+      const MIN_CHICKEN_SPEED = 2;
+      const MAX_CHICKEN_SPEED = 4.4;
+      const SPAWN_INTERVAL_MS = 700;
+      const FRAME_INTERVAL_MS = 16;
 
       let running = false;
       let score1 = 0;
@@ -244,6 +247,14 @@
       let chickens = [];
       let spawnInterval;
       let gameInterval;
+      let clockInterval;
+
+      function getHitZone() {
+        return {
+          left: arena.clientWidth - 170,
+          right: arena.clientWidth - 80
+        };
+      }
 
       function updateHud() {
         score1El.textContent = score1;
@@ -260,7 +271,9 @@
         chicken.style.left = '-56px';
         chicken.dataset.lane = lane;
         chicken.dataset.x = '-56';
-        chicken.dataset.speed = String(2 + Math.random() * 2.4);
+        chicken.dataset.speed = String(
+          MIN_CHICKEN_SPEED + Math.random() * (MAX_CHICKEN_SPEED - MIN_CHICKEN_SPEED)
+        );
         arena.appendChild(chicken);
         chickens.push(chicken);
       }
@@ -284,10 +297,11 @@
       }
 
       function shoot(player, lane) {
+        const hitZone = getHitZone();
         const target = chickens.find((chicken) => {
           const chickenLane = Number(chicken.dataset.lane);
           const x = Number(chicken.dataset.x) + 28;
-          return chickenLane === lane && x >= hitZoneLeft && x <= hitZoneRight;
+          return chickenLane === lane && x >= hitZone.left && x <= hitZone.right;
         });
 
         if (!target) {
@@ -309,6 +323,7 @@
         running = false;
         clearInterval(spawnInterval);
         clearInterval(gameInterval);
+        clearInterval(clockInterval);
 
         let winner = 'Unentschieden!';
         if (score1 > score2) {
@@ -340,19 +355,20 @@
 
         clearInterval(spawnInterval);
         clearInterval(gameInterval);
+        clearInterval(clockInterval);
 
-        spawnInterval = setInterval(createChicken, 700);
-        gameInterval = setInterval(moveChickens, 16);
+        spawnInterval = setInterval(createChicken, SPAWN_INTERVAL_MS);
+        gameInterval = setInterval(moveChickens, FRAME_INTERVAL_MS);
 
-        const clock = setInterval(() => {
+        clockInterval = setInterval(() => {
           if (!running) {
-            clearInterval(clock);
+            clearInterval(clockInterval);
             return;
           }
           timeLeft -= 1;
           updateHud();
           if (timeLeft <= 0) {
-            clearInterval(clock);
+            clearInterval(clockInterval);
             endGame();
           }
         }, 1000);
@@ -373,6 +389,12 @@
         const laneP2 = p2Keys.indexOf(key);
         if (laneP2 >= 0) {
           shoot(2, laneP2);
+          return;
+        }
+
+        const laneP2Alt = altP2Keys.indexOf(key);
+        if (laneP2Alt >= 0) {
+          shoot(2, laneP2Alt);
         }
       });
 
