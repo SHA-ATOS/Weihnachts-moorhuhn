@@ -233,8 +233,9 @@
 
       const lanes = [130, 220, 310, 400];
       const p1Keys = ['a', 's', 'd', 'f'];
-      const p2Keys = ['j', 'k', 'l', 'ö'];
-      const altP2Keys = ['j', 'k', 'l', ';'];
+      const p2SharedKeys = ['j', 'k', 'l'];
+      const p2Keys = [...p2SharedKeys, 'ö'];
+      const altP2Keys = [...p2SharedKeys, ';'];
       const MIN_CHICKEN_SPEED = 2;
       const MAX_CHICKEN_SPEED = 4.4;
       const SPAWN_INTERVAL_MS = 700;
@@ -344,7 +345,7 @@
           </div>
         `;
         overlay.style.display = 'grid';
-        overlay.querySelector('#startBtn').addEventListener('click', startGame);
+        overlay.querySelector('#startBtn').onclick = startGame;
       }
 
       function startGame() {
