@@ -140,8 +140,8 @@
         <h1>🎄 Weihnachts-Moorhuhn 🎄</h1>
         <h2>2-Spieler Modus</h2>
         <div class="instructions">
-            <strong>Spieler 1 (Rot):</strong> Maus bewegen + Linksklick zum Schießen<br>
-            <strong>Spieler 2 (Blau):</strong> Pfeiltasten bewegen + Leertaste zum Schießen<br><br>
+            <strong>Spieler 1 (Rot):</strong> WASD bewegen + Leertaste zum Schießen<br>
+            <strong>Spieler 2 (Blau):</strong> Pfeiltasten bewegen + Enter zum Schießen<br><br>
             Schießt so viele Moorhühner wie möglich in <strong>60 Sekunden!</strong><br>
             🐔 Kleines Huhn = 10 Punkte &nbsp; 🐓 Großes Huhn = 5 Punkte &nbsp; ⭐ Stern = 25 Punkte
         </div>
@@ -1028,23 +1028,15 @@
         // INPUT HANDLING
         // ============================================================
 
-        // Player 1: Mouse
-        canvas.addEventListener('mousemove', (e) => {
-            player1.x = e.clientX;
-            player1.y = e.clientY;
-        });
-
-        canvas.addEventListener('click', (e) => {
-            shoot(player1, e.clientX, e.clientY);
-        });
-
-        // Prevent context menu
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        // Player 2: Keyboard
+        // Player 1: WASD + Space
+        // Player 2: Arrow keys + Enter
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
             if (e.code === 'Space') {
+                e.preventDefault();
+                shoot(player1, player1.x, player1.y);
+            }
+            if (e.code === 'Enter') {
                 e.preventDefault();
                 shoot(player2, player2.x, player2.y);
             }
@@ -1054,8 +1046,22 @@
             keys[e.code] = false;
         });
 
-        function updatePlayer2Movement() {
+        // Prevent context menu
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        function updatePlayerMovement() {
             const speed = 7;
+
+            // Player 1: WASD
+            if (keys['KeyA']) player1.x -= speed;
+            if (keys['KeyD']) player1.x += speed;
+            if (keys['KeyW']) player1.y -= speed;
+            if (keys['KeyS']) player1.y += speed;
+
+            player1.x = Math.max(0, Math.min(canvas.width, player1.x));
+            player1.y = Math.max(0, Math.min(canvas.height, player1.y));
+
+            // Player 2: Arrow keys
             if (keys['ArrowLeft']) player2.x -= speed;
             if (keys['ArrowRight']) player2.x += speed;
             if (keys['ArrowUp']) player2.y -= speed;
@@ -1084,7 +1090,7 @@
             if (spawnTimer % 90 === 0) spawnMoorhuhn(); // extra spawns
 
             // Update
-            updatePlayer2Movement();
+            updatePlayerMovement();
             updateMoorhuhns();
             updateParticles();
             updateSnowflakes();
