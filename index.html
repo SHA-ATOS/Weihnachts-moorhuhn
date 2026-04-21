@@ -239,6 +239,9 @@
       const MAX_CHICKEN_SPEED = 4.4;
       const SPAWN_INTERVAL_MS = 700;
       const FRAME_INTERVAL_MS = 16;
+      const HIT_ZONE_OFFSET_RIGHT = 80;
+      const HIT_ZONE_WIDTH = 90;
+      const CHICKEN_HALF_WIDTH = 28;
 
       let running = false;
       let score1 = 0;
@@ -251,8 +254,8 @@
 
       function getHitZone() {
         return {
-          left: arena.clientWidth - 170,
-          right: arena.clientWidth - 80
+          left: arena.clientWidth - (HIT_ZONE_OFFSET_RIGHT + HIT_ZONE_WIDTH),
+          right: arena.clientWidth - HIT_ZONE_OFFSET_RIGHT
         };
       }
 
@@ -300,7 +303,7 @@
         const hitZone = getHitZone();
         const target = chickens.find((chicken) => {
           const chickenLane = Number(chicken.dataset.lane);
-          const x = Number(chicken.dataset.x) + 28;
+          const x = Number(chicken.dataset.x) + CHICKEN_HALF_WIDTH;
           return chickenLane === lane && x >= hitZone.left && x <= hitZone.right;
         });
 
@@ -345,6 +348,10 @@
       }
 
       function startGame() {
+        clearInterval(spawnInterval);
+        clearInterval(gameInterval);
+        clearInterval(clockInterval);
+
         score1 = 0;
         score2 = 0;
         timeLeft = 60;
@@ -352,10 +359,6 @@
         clearChickens();
         overlay.style.display = 'none';
         updateHud();
-
-        clearInterval(spawnInterval);
-        clearInterval(gameInterval);
-        clearInterval(clockInterval);
 
         spawnInterval = setInterval(createChicken, SPAWN_INTERVAL_MS);
         gameInterval = setInterval(moveChickens, FRAME_INTERVAL_MS);
